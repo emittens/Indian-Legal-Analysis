@@ -1,0 +1,154 @@
+{% extends "base.html" %}
+{% block title %}Trends — Indian Legal Analysis{% endblock %}
+{% block page_title %}Trend Analysis{% endblock %}
+
+{% block content %}
+<!-- Volume by Category stacked area -->
+<div class="chart-row">
+  <div class="chart-card wide">
+    <h3>Case Volume by Category (1950–2025)</h3>
+    <p class="card-desc">Stacked area showing how case types evolved over the Supreme Court's history.</p>
+    <div id="volCatChart" class="chart-container tall"></div>
+  </div>
+</div>
+
+<!-- Constitutional articles -->
+<div class="chart-row two-col">
+  <div class="chart-card">
+    <h3>Key Constitutional Articles</h3>
+    <p class="card-desc">Annual citation counts for Articles 14, 21, 32, and 226.</p>
+    <div id="articlesChart" class="chart-container"></div>
+  </div>
+  <div class="chart-card">
+    <h3>Criminal vs Civil Trend</h3>
+    <p class="card-desc">Yearly judgment counts for the two largest categories.</p>
+    <div id="crimCivilChart" class="chart-container"></div>
+  </div>
+</div>
+
+<!-- Statutes table -->
+<div class="chart-row">
+  <div class="chart-card wide">
+    <h3>Top Statutes — Detailed</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Statute</th>
+            <th>Full Name</th>
+            <th>Total Citations</th>
+            <th>Slope/year</th>
+            <th>First Seen</th>
+            <th>Last Seen</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in data.top_statutes %}
+          <tr>
+            <td><code>{{ s.statute }}</code></td>
+            <td>{{ s.statute_name }}</td>
+            <td>{{ "{:,.0f}".format(s.total) }}</td>
+            <td class="{% if s.slope_per_year > 0 %}trend-up{% else %}trend-down{% endif %}">
+              {{ "%.2f" | format(s.slope_per_year) }}
+            </td>
+            <td>{{ s.first_year | int }}</td>
+            <td>{{ s.last_year | int }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const D = {{ data_json | safe }};
+const plotCfg = {displayModeBar: false, responsive: true};
+const catColors = {
+  'Civil': '#3b82f6', 'Criminal': '#ef4444', 'Constitutional': '#8b5cf6',
+  'Tax': '#14b8a6', 'Other': '#94a3b8', 'Labour': '#f59e0b',
+  'Service': '#f97316', 'Election': '#22c55e', 'MotorAccident': '#334155',
+  'Contempt': '#1e293b', 'Arbitration': '#64748b', 'Family': '#ec4899',
+  'Consumer': '#06b6d4', 'Reference': '#a1a1aa'
+};
+
+// 1. Volume by category stacked area
+if (D.volume_by_category && D.volume_by_category.length) {
+  const years = D.volume_by_category.map(r => r.year);
+  const cats = Object.keys(D.volume_by_category[0]).filter(k => k !== 'year');
+  const ordered = cats.sort((a,b) => {
+    const sa = D.volume_by_category.reduce((s,r) => s + (r[a]||0), 0);
+    const sb = D.volume_by_category.reduce((s,r) => s + (r[b]||0), 0);
+    return sb - sa;
+  });
+  const traces = ordered.map(cat => ({
+    x: years,
+    y: D.volume_by_category.map(r => r[cat] || 0),
+    type: 'scatter', mode: 'lines',
+    stackgroup: 'one', name: cat,
+    line: {width: 0.5, color: catColors[cat] || '#94a3b8'},
+    fillcolor: catColors[cat] || '#94a3b8',
+    hovertemplate: '%{x}: %{y}<extra>' + cat + '</extra>'
+  }));
+  Plotly.newPlot('volCatChart', traces, {
+    margin: {t: 10, b: 40, l: 50, r: 20},
+    xaxis: {title: ''},
+    yaxis: {title: 'Judgments'},
+    legend: {orientation: 'h', y: -0.15, font: {size: 10}},
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    font: {family: 'inherit', size: 11, color: '#64748b'},
+  }, plotCfg);
+}
+
+// 2. Constitutional articles
+if (D.summary && D.summary.length) {
+  const years = D.summary.map(r => r.year);
+  const arts = [
+    {key: 'article_14_hits', name: 'Art. 14 (Equality)', color: '#3b82f6'},
+    {key: 'article_21_hits', name: 'Art. 21 (Life & Liberty)', color: '#ef4444'},
+    {key: 'article_32_hits', name: 'Art. 32 (Writs)', color: '#22c55e'},
+    {key: 'article_226_hits', name: 'Art. 226 (HC Writs)', color: '#f59e0b'},
+  ];
+  const traces = arts.map(a => ({
+    x: years,
+    y: D.summary.map(r => r[a.key] || 0),
+    type: 'scatter', mode: 'lines',
+    name: a.name, line: {color: a.color, width: 2},
+    hovertemplate: '%{x}: %{y}<extra>' + a.name + '</extra>'
+  }));
+  Plotly.newPlot('articlesChart', traces, {
+    margin: {t: 10, b: 40, l: 50, r: 20},
+    xaxis: {title: ''},
+    yaxis: {title: 'Citations/year'},
+    legend: {x: 0.02, y: 0.98, bgcolor: 'rgba(255,255,255,0.7)', font: {size: 10}},
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    font: {family: 'inherit', size: 11, color: '#64748b'},
+  }, plotCfg);
+}
+
+// 3. Criminal vs Civil
+if (D.volume_by_category && D.volume_by_category.length) {
+  const years = D.volume_by_category.map(r => r.year);
+  Plotly.newPlot('crimCivilChart', [{
+    x: years,
+    y: D.volume_by_category.map(r => r['Civil'] || 0),
+    type: 'scatter', mode: 'lines',
+    name: 'Civil', line: {color: '#3b82f6', width: 2},
+  }, {
+    x: years,
+    y: D.volume_by_category.map(r => r['Criminal'] || 0),
+    type: 'scatter', mode: 'lines',
+    name: 'Criminal', line: {color: '#ef4444', width: 2},
+  }], {
+    margin: {t: 10, b: 40, l: 50, r: 20},
+    xaxis: {title: ''},
+    yaxis: {title: 'Judgments/year'},
+    legend: {x: 0.02, y: 0.98, bgcolor: 'rgba(255,255,255,0.7)', font: {size: 10}},
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    font: {family: 'inherit', size: 11, color: '#64748b'},
+  }, plotCfg);
+}
+</script>
+{% endblock %}

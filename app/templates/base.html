@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Indian Legal Analysis{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.plot.ly/plotly-2.35.0.min.js" charset="utf-8"></script>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M12 6v6l4 2"/>
+        </svg>
+        <span>Legal Analysis</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="{{ url_for('main.index') }}" class="nav-item {% if request.endpoint == 'main.index' %}active{% endif %}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard
+      </a>
+      <a href="{{ url_for('main.analyzer') }}" class="nav-item {% if request.endpoint in ['main.analyzer', 'main.analyze_form'] %}active{% endif %}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        Analyzer
+      </a>
+      <a href="{{ url_for('main.trends') }}" class="nav-item {% if request.endpoint == 'main.trends' %}active{% endif %}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Trends
+      </a>
+      <a href="{{ url_for('main.retrieval') }}" class="nav-item {% if request.endpoint == 'main.retrieval' %}active{% endif %}">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h7"/><circle cx="19" cy="17" r="3"/><path d="M21.5 19.5l-1.5-1.5"/></svg>
+        Similar Cases
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-badge">Flask + spaCy</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-wrapper">
+    <header class="topbar">
+      <button class="menu-toggle" id="menuToggle" aria-label="Toggle sidebar">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <h1 class="page-title">{% block page_title %}Indian Legal Analysis{% endblock %}</h1>
+      <div class="topbar-right">
+        <span class="status-dot"></span>
+        <span class="status-text">System Online</span>
+      </div>
+    </header>
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script>
+    const sidebar = document.getElementById('sidebar');
+    const toggle = document.getElementById('menuToggle');
+    toggle.addEventListener('click', () => sidebar.classList.toggle('collapsed'));
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

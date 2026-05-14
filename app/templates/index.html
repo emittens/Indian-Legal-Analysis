@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Analyzer — Indian Legal Analysis{% endblock %}
+{% block page_title %}Text Analyzer{% endblock %}
+
+{% block content %}
+<div class="chart-row">
+  <div class="chart-card wide">
+    <h3>Analyze Legal Text</h3>
+    <p class="card-desc">Paste a judgment, statute extract, or case note below. The NLP pipeline will extract citations, statutes, named entities, and sentence structure.</p>
+    <form method="post" action="{{ url_for('main.analyze_form') }}">
+      <textarea name="text" rows="14" placeholder="Paste a judgment, statute extract, or case note here..." required></textarea>
+      <div class="actions">
+        <button type="submit">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px;margin-right:6px"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          Analyze
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="chart-row two-col">
+  <div class="chart-card">
+    <h3>JSON API</h3>
+    <p class="card-desc">Programmatic access via POST:</p>
+    <pre>curl -X POST http://localhost:5000/api/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"text": "In AIR 1973 SC 1461..."}'</pre>
+  </div>
+  <div class="chart-card">
+    <h3>Health Check</h3>
+    <p class="card-desc">Verify the NLP pipeline status:</p>
+    <pre>GET /api/health</pre>
+    <p class="card-desc" style="margin-top:1rem">Returns the loaded model name, pipeline components, and status.</p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,276 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — Indian Legal Analysis{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<!-- KPI Cards -->
+<div class="kpi-row">
+  <div class="kpi-card">
+    <div class="kpi-icon blue">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    </div>
+    <div class="kpi-body">
+      <div class="kpi-value">{{ "{:,}".format(data.total_judgments) }}</div>
+      <div class="kpi-label">Total Judgments</div>
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon green">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    </div>
+    <div class="kpi-body">
+      <div class="kpi-value">{{ data.year_range[0] }}–{{ data.year_range[1] }}</div>
+      <div class="kpi-label">Year Coverage</div>
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon purple">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    </div>
+    <div class="kpi-body">
+      <div class="kpi-value">{{ data.top_judges | length * 33 }}+</div>
+      <div class="kpi-label">Distinct Judges</div>
+    </div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon amber">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+    </div>
+    <div class="kpi-body">
+      <div class="kpi-value">{{ data.top_statutes | length }}+</div>
+      <div class="kpi-label">Statutes Tracked</div>
+    </div>
+  </div>
+</div>
+
+<!-- Charts Row 1 -->
+<div class="chart-row">
+  <div class="chart-card wide">
+    <h3>Annual Judgment Volume (1950–2025)</h3>
+    <div id="volumeChart" class="chart-container"></div>
+  </div>
+</div>
+
+<!-- Charts Row 2 -->
+<div class="chart-row two-col">
+  <div class="chart-card">
+    <h3>Case Category Distribution</h3>
+    <div id="categoryChart" class="chart-container"></div>
+  </div>
+  <div class="chart-card">
+    <h3>Bench Size Trend</h3>
+    <div id="benchChart" class="chart-container"></div>
+  </div>
+</div>
+
+<!-- Charts Row 3 -->
+<div class="chart-row two-col">
+  <div class="chart-card">
+    <h3>Median Word Count per Judgment</h3>
+    <div id="lengthChart" class="chart-container"></div>
+  </div>
+  <div class="chart-card">
+    <h3>Marquee Criminal Sections</h3>
+    <div id="sectionsChart" class="chart-container"></div>
+  </div>
+</div>
+
+<!-- Tables Row -->
+<div class="chart-row two-col">
+  <div class="chart-card">
+    <h3>Top 10 Judges by Output</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Judge</th><th>Judgments</th><th>Span</th><th>Const. Bench %</th></tr></thead>
+        <tbody>
+          {% for j in data.top_judges %}
+          <tr>
+            <td class="cell-name">{{ j.norm_author | title }}</td>
+            <td>{{ j.judgments }}</td>
+            <td>{{ j.first_year }}–{{ j.last_year }}</td>
+            <td>{{ "%.1f" | format(j.const_bench_share * 100) }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="chart-card">
+    <h3>Most Cited Cases (PageRank)</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Case</th><th>In-degree</th><th>PageRank</th></tr></thead>
+        <tbody>
+          {% for c in data.top_cases %}
+          <tr>
+            <td class="cell-name">{{ c.case_id }}</td>
+            <td>{{ c.in_degree }}</td>
+            <td>{{ "%.5f" | format(c.pagerank) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Top Statutes -->
+<div class="chart-row">
+  <div class="chart-card wide">
+    <h3>Top Statutes by Citation Count</h3>
+    <div id="statuteChart" class="chart-container"></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const D = {{ data_json | safe }};
+const plotCfg = {displayModeBar: false, responsive: true};
+const colors = {
+  blue: '#3b82f6', green: '#22c55e', purple: '#8b5cf6', amber: '#f59e0b',
+  red: '#ef4444', teal: '#14b8a6', indigo: '#6366f1', pink: '#ec4899',
+  slate: '#64748b', orange: '#f97316', cyan: '#06b6d4', lime: '#84cc16',
+  rose: '#f43f5e'
+};
+
+// 1. Volume bar chart
+if (D.summary && D.summary.length) {
+  const years = D.summary.map(r => r.year);
+  const vols = D.summary.map(r => r.judgments);
+  Plotly.newPlot('volumeChart', [{
+    x: years, y: vols, type: 'bar',
+    marker: {color: colors.blue, opacity: 0.85},
+    hovertemplate: '%{x}: %{y} judgments<extra></extra>'
+  }], {
+    margin: {t: 10, b: 40, l: 50, r: 20},
+    xaxis: {title: ''},
+    yaxis: {title: 'Judgments'},
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    font: {family: 'inherit', size: 11, color: '#64748b'},
+  }, plotCfg);
+}
+
+// 2. Category donut
+if (D.category_distribution) {
+  const cats = Object.entries(D.category_distribution).sort((a,b) => b[1]-a[1]);
+  const catColors = [colors.blue, colors.red, colors.purple, colors.amber,
+    colors.green, colors.teal, colors.orange, colors.pink,
+    colors.indigo, colors.cyan, colors.lime, colors.slate, colors.rose];
+  Plotly.newPlot('categoryChart', [{
+    labels: cats.map(c => c[0]),
+    values: cats.map(c => c[1]),
+    type: 'pie', hole: 0.45,
+    marker: {colors: catColors},
+    textinfo: 'label+percent',
+    textposition: 'outside',
+    textfont: {size: 10},
+    hovertemplate: '%{label}: %{value:,} (%{percent})<extra></extra>'
+  }], {
+    margin: {t: 10, b: 10, l: 10, r: 10},
+    showlegend: false,
+    paper_bgcolor: 'transparent',
+    font: {family: 'inherit', size: 11, color: '#64748b'},
+  }, plotCfg);
+}
+
+// 3. Bench size trend
+if (D.summary && D.summary.length) {
+  const years = D.summary.map(r => r.year);
+  Plotly.newPlot('benchChart', [{
+    x: years,
+    y: D.summary.map(r => r.avg_bench_size),
+    type: 'scatter', mode: 'lines',
+    name: 'Avg bench size',
+    line: {color: colors.orange, width: 2},
+    hovertemplate: '%{x}: %{y:.2f}<extra>Avg bench size</extra>'
+  }, {
+    x: years,
+    y: D.summary.map(r => r.constitution_bench_share * 100),
+    type: 'scatter', mode: 'lines',
+    name: 'Const. bench %',
+    yaxis: 'y2',
+    line: {color: colors.purple, width: 2, dash: 'dot'},
+    hovertemplate: '%{x}: %{y:.1f}%<extra>Constitution bench share</extra>'
+  }], {
+    margin: {t: 10, b: 40, l: 50, r: 50},
+    xaxis: {title: ''},
+    yaxis: {title: 'Avg bench size', side: 'left'},
+    yaxis2: {title: 'Const. bench %', side: 'right', overlaying: 'y', rangemode: 'tozero'},
+    legend: {x: 0.02, y: 0.98, bgcolor: 'rgba(255,255,255,0.7)', font: {size: 10}},
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    font: {family: 'inherit', size: 11, color: '#64748b'},
+  }, plotCfg);
+}
+
+// 4. Median word count
+if (D.summary && D.summary.length) {
+  const years = D.summary.map(r => r.year);
+  Plotly.newPlot('lengthChart', [{
+    x: years,
+    y: D.summary.map(r => r.p90_wordcount),
+    type: 'scatter', mode: 'lines',
+    name: 'p90', line: {width: 0}, showlegend: false,
+  }, {
+    x: years,
+    y: D.summary.map(r => r.median_wordcount),
+    type: 'scatter', mode: 'lines',
+    fill: 'tonexty', name: 'Median',
+    line: {color: colors.green, width: 2},
+    fillcolor: 'rgba(34,197,94,0.15)',
+    hovertemplate: '%{x}: %{y:,.0f} words<extra>Median</extra>'
+  }], {
+    margin: {t: 10, b: 40, l: 60, r: 20},
+    xaxis: {title: ''},
+    yaxis: {title: 'Word count'},
+    showlegend: false,
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    font: {family: 'inherit', size: 11, color: '#64748b'},
+  }, plotCfg);
+}
+
+// 5. Marquee sections
+if (D.summary && D.summary.length) {
+  const years = D.summary.map(r => r.year);
+  const secs = [
+    {key: 'ipc_302_hits', name: 'IPC 302 (Murder)', color: colors.red},
+    {key: 'ipc_498A_hits', name: 'IPC 498A (Cruelty)', color: colors.orange},
+    {key: 'crpc_482_hits', name: 'CrPC 482 (Inherent)', color: colors.green},
+    {key: 'crpc_438_hits', name: 'CrPC 438 (Anticip. Bail)', color: colors.blue},
+  ];
+  const traces = secs.map(s => ({
+    x: years,
+    y: D.summary.map(r => r[s.key] || 0),
+    type: 'scatter', mode: 'lines',
+    name: s.name,
+    line: {color: s.color, width: 2},
+    hovertemplate: '%{x}: %{y}<extra>' + s.name + '</extra>'
+  }));
+  Plotly.newPlot('sectionsChart', traces, {
+    margin: {t: 10, b: 40, l: 50, r: 20},
+    xaxis: {title: ''},
+    yaxis: {title: 'Citations/year'},
+    legend: {x: 0.02, y: 0.98, bgcolor: 'rgba(255,255,255,0.7)', font: {size: 10}},
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    font: {family: 'inherit', size: 11, color: '#64748b'},
+  }, plotCfg);
+}
+
+// 6. Top statutes horizontal bar
+if (D.top_statutes && D.top_statutes.length) {
+  const sorted = [...D.top_statutes].sort((a,b) => a.total - b.total);
+  Plotly.newPlot('statuteChart', [{
+    y: sorted.map(s => s.statute_name),
+    x: sorted.map(s => s.total),
+    type: 'bar', orientation: 'h',
+    marker: {color: colors.indigo, opacity: 0.85},
+    hovertemplate: '%{y}: %{x:,} citations<extra></extra>'
+  }], {
+    margin: {t: 10, b: 40, l: 200, r: 20},
+    xaxis: {title: 'Total citations'},
+    paper_bgcolor: 'transparent', plot_bgcolor: 'transparent',
+    font: {family: 'inherit', size: 11, color: '#64748b'},
+  }, plotCfg);
+}
+</script>
+{% endblock %}

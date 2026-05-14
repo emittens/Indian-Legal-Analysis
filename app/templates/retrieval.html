@@ -1,0 +1,572 @@
+{% extends "base.html" %}
+{% block title %}Similar Case Retrieval — Indian Legal Analysis{% endblock %}
+{% block page_title %}Similar Case Retrieval{% endblock %}
+
+{% block content %}
+<div class="ret-layout">
+
+  <!-- ── LEFT: Search + Filters ─────────────────────────────── -->
+  <aside class="ret-sidebar">
+
+    <!-- Mode toggle -->
+    <div class="ret-mode-toggle">
+      <button class="mode-btn active" id="modeText" onclick="setMode('text')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        Free-text
+      </button>
+      <button class="mode-btn" id="modeCase" onclick="setMode('case')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Find Similar
+      </button>
+      <button class="mode-btn" id="modeHybrid" onclick="setMode('hybrid')">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        Hybrid
+      </button>
+    </div>
+
+    <!-- Query input -->
+    <div class="ret-field" id="queryField">
+      <label class="ret-label">Search query</label>
+      <textarea id="queryInput" class="ret-textarea" rows="4"
+        placeholder="e.g. Motor accident compensation under Section 166 MV Act…"></textarea>
+    </div>
+
+    <!-- Case selector -->
+    <div class="ret-field" id="caseField" style="display:none">
+      <label class="ret-label">Case title / ID</label>
+      <input id="caseInput" class="ret-input" type="text"
+             placeholder="Type to search cases…" autocomplete="off">
+      <div id="caseSuggestions" class="ret-suggestions"></div>
+      <input id="caseIdHidden" type="hidden" value="">
+      <div id="caseSelected" class="ret-case-chip" style="display:none"></div>
+    </div>
+
+    <button class="ret-search-btn" id="searchBtn" onclick="doSearch()">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      Retrieve
+    </button>
+
+    <hr class="ret-divider">
+
+    <!-- Filters -->
+    <div class="ret-section-label">Filters</div>
+
+    <div class="ret-field">
+      <label class="ret-label">Year range</label>
+      <div class="ret-year-row">
+        <input type="number" id="yearMin" class="ret-input-sm" placeholder="1950" min="1950" max="2025">
+        <span class="ret-year-dash">—</span>
+        <input type="number" id="yearMax" class="ret-input-sm" placeholder="2025" min="1950" max="2025">
+      </div>
+    </div>
+
+    <div class="ret-field">
+      <label class="ret-label">Category</label>
+      <div class="ret-checks" id="catChecks">
+        {% for cat in categories %}
+        <label class="ret-check-item">
+          <input type="checkbox" class="cat-check" value="{{ cat }}"> {{ cat }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="ret-field">
+      <label class="ret-label">Statute contains</label>
+      <input type="text" id="filterStatute" class="ret-input" placeholder="e.g. Motor Vehicles Act">
+    </div>
+
+    <div class="ret-field">
+      <label class="ret-label">Constitutional article</label>
+      <input type="text" id="filterArticle" class="ret-input" placeholder="e.g. 21">
+    </div>
+
+    <div class="ret-field">
+      <label class="ret-label">Min bench size</label>
+      <input type="number" id="filterBench" class="ret-input-sm" placeholder="1" min="1" max="13">
+    </div>
+
+    <div class="ret-field">
+      <label class="ret-label">Results (top-K)</label>
+      <select id="topK" class="ret-input">
+        <option value="10">10</option>
+        <option value="20" selected>20</option>
+        <option value="50">50</option>
+      </select>
+    </div>
+
+    <hr class="ret-divider">
+
+    <!-- Weight sliders -->
+    <div class="ret-section-label">Ranking weights
+      <button class="ret-reset-btn" onclick="resetWeights()">reset</button>
+    </div>
+    <div id="weightSliders">
+      {% for key, label, val in weights %}
+      <div class="ret-weight-row">
+        <span class="ret-weight-label">{{ label }}</span>
+        <input type="range" class="ret-slider" id="w_{{ key }}" min="0" max="1" step="0.01"
+               value="{{ val }}" oninput="updateWeightDisplay('{{ key }}', this.value)">
+        <span class="ret-weight-val" id="wv_{{ key }}">{{ "%.2f"|format(val) }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+  </aside>
+
+  <!-- ── RIGHT: Results ──────────────────────────────────────── -->
+  <div class="ret-main">
+
+    <!-- Status / empty state -->
+    <div id="retEmpty" class="ret-empty">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="1.5">
+        <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+      </svg>
+      <p>Enter a query or select a case to retrieve similar judgments.</p>
+      {% if not semantic_available %}
+      <div class="ret-notice">
+        <strong>Semantic retrieval is not active.</strong>
+        FAISS index not found. Run <code>python -m app.data.trends.retrieval_index</code>
+        to build it and enable dense vector search. Lexical retrieval works now.
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Loading -->
+    <div id="retLoading" class="ret-loading" style="display:none">
+      <div class="ret-spinner"></div>
+      <span>Retrieving…</span>
+    </div>
+
+    <!-- Error -->
+    <div id="retError" class="alert alert-error" style="display:none"></div>
+
+    <!-- Query info bar (shown after search) -->
+    <div id="retInfoBar" class="ret-info-bar" style="display:none">
+      <div class="ret-info-left">
+        <span id="retQueryDisplay"></span>
+        <span class="ret-meta-tag" id="retSemanticTag"></span>
+      </div>
+      <div class="ret-info-right">
+        <span id="retTiming" class="ret-timing"></span>
+        <span id="retCandidates" class="ret-timing"></span>
+      </div>
+    </div>
+
+    <!-- Query entities -->
+    <div id="retEntities" class="ret-entities" style="display:none"></div>
+
+    <!-- Tabs -->
+    <div id="retTabsWrap" style="display:none">
+      <div class="ret-tabs">
+        <button class="ret-tab active" id="tab-top"      onclick="showTab('top')">
+          Top Results <span class="ret-tab-count" id="cnt-top"></span>
+        </button>
+        <button class="ret-tab" id="tab-lexical"  onclick="showTab('lexical')">
+          Exact Matches <span class="ret-tab-count" id="cnt-lexical"></span>
+        </button>
+        <button class="ret-tab" id="tab-semantic" onclick="showTab('semantic')">
+          Semantic <span class="ret-tab-count" id="cnt-semantic"></span>
+        </button>
+      </div>
+
+      <div id="panel-top"      class="ret-panel"></div>
+      <div id="panel-lexical"  class="ret-panel" style="display:none"></div>
+      <div id="panel-semantic" class="ret-panel" style="display:none"></div>
+    </div>
+
+  </div><!-- /ret-main -->
+</div><!-- /ret-layout -->
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+// ── State ──────────────────────────────────────────────────────
+let currentMode = 'text';
+let selectedCaseId = '';
+let lastResponse = null;
+let caseSearchTimer = null;
+
+const CATEGORY_COLORS = {{ category_colors | tojson }};
+
+// ── Mode toggle ────────────────────────────────────────────────
+function setMode(mode) {
+  currentMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('mode' + mode.charAt(0).toUpperCase() + mode.slice(1)).classList.add('active');
+  document.getElementById('queryField').style.display = (mode === 'case') ? 'none' : '';
+  document.getElementById('caseField').style.display  = (mode === 'text') ? 'none' : '';
+}
+
+// ── Weight sliders ─────────────────────────────────────────────
+const DEFAULT_WEIGHTS = {{ default_weights | tojson }};
+function updateWeightDisplay(key, val) {
+  document.getElementById('wv_' + key).textContent = parseFloat(val).toFixed(2);
+}
+function resetWeights() {
+  for (const [k, v] of Object.entries(DEFAULT_WEIGHTS)) {
+    const el = document.getElementById('w_' + k);
+    if (el) { el.value = v; updateWeightDisplay(k, v); }
+  }
+}
+
+// ── Case autocomplete ──────────────────────────────────────────
+document.getElementById('caseInput').addEventListener('input', function() {
+  clearTimeout(caseSearchTimer);
+  const q = this.value.trim();
+  if (q.length < 3) { hideSuggestions(); return; }
+  caseSearchTimer = setTimeout(() => fetchCaseSuggestions(q), 300);
+});
+
+async function fetchCaseSuggestions(q) {
+  try {
+    const r = await fetch('/api/retrieve/search-cases?q=' + encodeURIComponent(q));
+    const data = await r.json();
+    showSuggestions(data.results || []);
+  } catch(e) { hideSuggestions(); }
+}
+
+function showSuggestions(results) {
+  const box = document.getElementById('caseSuggestions');
+  if (!results.length) { hideSuggestions(); return; }
+  box.innerHTML = results.slice(0, 8).map(r =>
+    `<div class="ret-suggestion" onclick="selectCase('${escHtml(r.case_id)}', '${escHtml(r.title)}', ${r.year})">
+       <span class="ret-sug-title">${escHtml(r.title.substring(0,80))}</span>
+       <span class="ret-sug-meta">${r.year} · ${r.category}</span>
+     </div>`
+  ).join('');
+  box.style.display = 'block';
+}
+
+function hideSuggestions() {
+  document.getElementById('caseSuggestions').style.display = 'none';
+}
+
+function selectCase(id, title, year) {
+  selectedCaseId = id;
+  hideSuggestions();
+  document.getElementById('caseInput').value = '';
+  const chip = document.getElementById('caseSelected');
+  chip.innerHTML = `<span>${escHtml(title.substring(0,60))} (${year})</span>
+    <button onclick="clearCase()" class="ret-chip-x">&times;</button>`;
+  chip.style.display = 'flex';
+}
+
+function clearCase() {
+  selectedCaseId = '';
+  document.getElementById('caseSelected').style.display = 'none';
+  document.getElementById('caseInput').value = '';
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('#caseField')) hideSuggestions();
+});
+
+// ── Build request payload ──────────────────────────────────────
+function buildPayload() {
+  const query = document.getElementById('queryInput').value.trim();
+  const caseId = (currentMode !== 'text') ? selectedCaseId : '';
+
+  const cats = [...document.querySelectorAll('.cat-check:checked')].map(c => c.value);
+  const filters = {};
+  const yMin = parseInt(document.getElementById('yearMin').value);
+  const yMax = parseInt(document.getElementById('yearMax').value);
+  if (!isNaN(yMin)) filters.year_min = yMin;
+  if (!isNaN(yMax)) filters.year_max = yMax;
+  if (cats.length) filters.categories = cats;
+  const bench = parseInt(document.getElementById('filterBench').value);
+  if (!isNaN(bench)) filters.bench_size_min = bench;
+  const statute = document.getElementById('filterStatute').value.trim();
+  if (statute) filters.statute = statute;
+  const article = document.getElementById('filterArticle').value.trim();
+  if (article) filters.article = article;
+
+  const weights = {};
+  ['bm25','semantic','sections','statutes','citation','articles','category'].forEach(k => {
+    const el = document.getElementById('w_' + k);
+    if (el) weights[k] = parseFloat(el.value);
+  });
+
+  return {
+    query,
+    case_id: caseId || null,
+    filters,
+    weights,
+    top_k: parseInt(document.getElementById('topK').value) || 20,
+  };
+}
+
+// ── Search ─────────────────────────────────────────────────────
+async function doSearch() {
+  const payload = buildPayload();
+  if (!payload.query && !payload.case_id) {
+    alert('Please enter a query or select a case.');
+    return;
+  }
+
+  showLoading(true);
+  clearResults();
+
+  try {
+    const resp = await fetch('/api/retrieve', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload),
+    });
+    const data = await resp.json();
+    if (!resp.ok || data.status === 'error') {
+      showError(data.error || 'Retrieval failed.');
+      return;
+    }
+    lastResponse = data;
+    renderResults(data);
+  } catch(e) {
+    showError('Network error: ' + e.message);
+  } finally {
+    showLoading(false);
+  }
+}
+
+// ── Render ─────────────────────────────────────────────────────
+function renderResults(data) {
+  document.getElementById('retEmpty').style.display = 'none';
+
+  // Info bar
+  const bar = document.getElementById('retInfoBar');
+  bar.style.display = 'flex';
+  const qLabel = data.query
+    ? `"${escHtml(data.query.substring(0,60))}${data.query.length > 60 ? '…' : ''}"`
+    : `Similar to case`;
+  document.getElementById('retQueryDisplay').textContent = qLabel;
+
+  const semTag = document.getElementById('retSemanticTag');
+  semTag.textContent = data.meta.semantic_available ? 'Semantic ON' : 'Lexical only';
+  semTag.className = 'ret-meta-tag ' + (data.meta.semantic_available ? 'tag-sem' : 'tag-lex');
+
+  document.getElementById('retTiming').textContent =
+    data.meta.retrieval_time_ms.toFixed(0) + ' ms';
+  document.getElementById('retCandidates').textContent =
+    data.meta.total_candidates + ' candidates';
+
+  // Query entities
+  renderEntities(data.query_entities);
+
+  // Tab counts
+  document.getElementById('cnt-top').textContent     = data.top_results.length;
+  document.getElementById('cnt-lexical').textContent  = data.lexical_results.length;
+  document.getElementById('cnt-semantic').textContent = data.semantic_results.length;
+
+  // Panels
+  document.getElementById('panel-top').innerHTML     = renderPanel(data.top_results, 'fusion');
+  document.getElementById('panel-lexical').innerHTML  = renderPanel(data.lexical_results, 'lexical');
+  document.getElementById('panel-semantic').innerHTML = renderPanel(data.semantic_results, 'semantic');
+
+  document.getElementById('retTabsWrap').style.display = '';
+  showTab('top');
+}
+
+function renderEntities(ents) {
+  const box = document.getElementById('retEntities');
+  if (!ents) { box.style.display = 'none'; return; }
+
+  const groups = [
+    ['statutes',      'Statutes',   '#2563eb'],
+    ['articles',      'Articles',   '#7c3aed'],
+    ['ipc_sections',  'IPC',        '#c0392b'],
+    ['crpc_sections', 'CrPC',       '#16a085'],
+    ['doctrines',     'Doctrines',  '#d97706'],
+  ];
+
+  let html = '<div class="ret-ent-row">';
+  let any = false;
+  for (const [key, label, color] of groups) {
+    const items = ents[key] || [];
+    if (!items.length) continue;
+    any = true;
+    html += `<span class="ret-ent-group"><span class="ret-ent-label" style="color:${color}">${label}:</span> `;
+    html += items.map(i => `<span class="ret-ent-tag">${escHtml(i)}</span>`).join(' ');
+    html += '</span>';
+  }
+  html += '</div>';
+
+  if (any) {
+    box.innerHTML = html;
+    box.style.display = '';
+  } else {
+    box.style.display = 'none';
+  }
+}
+
+function renderPanel(results, mode) {
+  if (!results.length) {
+    return '<div class="ret-no-results">No results in this section.</div>';
+  }
+  return results.map((r, i) => renderCard(r, i + 1, mode)).join('');
+}
+
+function renderCard(r, rank, mode) {
+  const catColor = CATEGORY_COLORS[r.category] || '#94a3b8';
+  const provTags = r.provenance.map(p =>
+    `<span class="ret-prov ${p === 'lexical' ? 'prov-lex' : 'prov-sem'}">${p}</span>`
+  ).join('');
+
+  const scoreBar = mode === 'fusion' ? renderScoreBar(r) : '';
+  const signals  = renderSignals(r, mode);
+  const mainScore = mode === 'fusion'
+    ? r.fusion_score
+    : mode === 'lexical'
+    ? r.bm25_norm
+    : r.semantic_score;
+
+  return `
+  <div class="ret-card" id="card-${rank}-${mode}">
+    <div class="ret-card-header">
+      <div class="ret-card-rank">#${rank}</div>
+      <div class="ret-card-meta">
+        <span class="ret-card-year">${r.year}</span>
+        <span class="ret-card-cat" style="background:${catColor}20;color:${catColor}">${r.category}</span>
+        ${r.bench_size > 4 ? '<span class="ret-card-cb">CB</span>' : ''}
+        ${provTags}
+      </div>
+      <div class="ret-card-score">${(mainScore * 100).toFixed(0)}<span class="ret-score-unit">%</span></div>
+    </div>
+    <div class="ret-card-title">${escHtml(r.title)}</div>
+    ${r.headnote_preview ? `<p class="ret-card-preview">${escHtml(r.headnote_preview)}</p>` : ''}
+    ${signals}
+    ${scoreBar}
+  </div>`;
+}
+
+function renderSignals(r, mode) {
+  const parts = [];
+
+  if (r.shared_sections.length) {
+    parts.push(`<div class="ret-sig-row">
+      <span class="ret-sig-label">Shared sections</span>
+      ${r.shared_sections.map(s => `<span class="ret-sig-tag tag-sec">${escHtml(s)}</span>`).join('')}
+    </div>`);
+  }
+  if (r.shared_statutes.length) {
+    parts.push(`<div class="ret-sig-row">
+      <span class="ret-sig-label">Shared statutes</span>
+      ${r.shared_statutes.map(s => `<span class="ret-sig-tag tag-stat">${escHtml(s)}</span>`).join('')}
+    </div>`);
+  }
+  if (r.shared_articles.length) {
+    parts.push(`<div class="ret-sig-row">
+      <span class="ret-sig-label">Shared articles</span>
+      ${r.shared_articles.map(a => `<span class="ret-sig-tag tag-art">Art. ${escHtml(a)}</span>`).join('')}
+    </div>`);
+  }
+  if (r.direct_citation) {
+    parts.push(`<div class="ret-sig-row"><span class="ret-sig-tag tag-cite">Direct citation link</span></div>`);
+  } else if (r.citation_overlap > 0) {
+    parts.push(`<div class="ret-sig-row"><span class="ret-sig-tag tag-cite">${r.citation_overlap} shared citations</span></div>`);
+  }
+  if (r.category_match) {
+    parts.push(`<div class="ret-sig-row"><span class="ret-sig-tag tag-cat">Same category</span></div>`);
+  }
+
+  return parts.length
+    ? `<div class="ret-signals">${parts.join('')}</div>`
+    : '';
+}
+
+function renderScoreBar(r) {
+  const bd = r.score_breakdown || {};
+  const components = [
+    { key: 'bm25',     label: 'BM25',     color: '#2563eb' },
+    { key: 'semantic', label: 'Semantic',  color: '#7c3aed' },
+    { key: 'sections', label: 'Sections',  color: '#c0392b' },
+    { key: 'statutes', label: 'Statutes',  color: '#16a085' },
+    { key: 'citation', label: 'Citations', color: '#d97706' },
+    { key: 'articles', label: 'Articles',  color: '#8e44ad' },
+    { key: 'category', label: 'Category',  color: '#27ae60' },
+  ];
+
+  const id = 'bd_' + r.case_id.replace(/[^a-z0-9]/gi, '_');
+  const barSegments = components.map(c => {
+    const v = bd[c.key] || 0;
+    const pct = (v * 100).toFixed(1);
+    return v > 0
+      ? `<div class="ret-bd-seg" style="width:${Math.max(pct,1)}%;background:${c.color}"
+             title="${c.label}: ${pct}%"></div>`
+      : '';
+  }).join('');
+
+  const rows = components
+    .filter(c => (bd[c.key] || 0) > 0)
+    .map(c => {
+      const pct = ((bd[c.key] || 0) * 100).toFixed(1);
+      return `<div class="ret-bd-row">
+        <span class="ret-bd-dot" style="background:${c.color}"></span>
+        <span class="ret-bd-name">${c.label}</span>
+        <div class="ret-bd-bar-bg">
+          <div class="ret-bd-bar-fill" style="width:${pct}%;background:${c.color}"></div>
+        </div>
+        <span class="ret-bd-pct">${pct}%</span>
+      </div>`;
+    }).join('');
+
+  return `
+  <div class="ret-breakdown">
+    <button class="ret-bd-toggle" onclick="toggleBreakdown('${id}')">
+      <span>Score breakdown</span>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div id="${id}" class="ret-bd-detail" style="display:none">
+      <div class="ret-bd-minibar">${barSegments}</div>
+      ${rows}
+    </div>
+  </div>`;
+}
+
+function toggleBreakdown(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// ── Tabs ───────────────────────────────────────────────────────
+function showTab(tab) {
+  ['top','lexical','semantic'].forEach(t => {
+    document.getElementById('tab-'   + t).classList.toggle('active', t === tab);
+    document.getElementById('panel-' + t).style.display = (t === tab) ? '' : 'none';
+  });
+}
+
+// ── Utilities ──────────────────────────────────────────────────
+function showLoading(on) {
+  document.getElementById('retLoading').style.display = on ? 'flex' : 'none';
+  document.getElementById('searchBtn').disabled = on;
+}
+
+function clearResults() {
+  document.getElementById('retError').style.display    = 'none';
+  document.getElementById('retInfoBar').style.display  = 'none';
+  document.getElementById('retEntities').style.display = 'none';
+  document.getElementById('retTabsWrap').style.display = 'none';
+  document.getElementById('retEmpty').style.display    = '';
+}
+
+function showError(msg) {
+  const el = document.getElementById('retError');
+  el.textContent = msg;
+  el.style.display = '';
+  document.getElementById('retEmpty').style.display = 'none';
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Allow Enter key in query box
+document.getElementById('queryInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && e.ctrlKey) doSearch();
+});
+</script>
+{% endblock %}

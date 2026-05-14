@@ -1,0 +1,44 @@
+# ── Web app + NLP ─────────────────────────────────────────────
+Flask==3.0.3
+python-dotenv==1.0.1
+spacy==3.7.5
+# Blackstone legal NLP model (installed from direct wheel — see README)
+# https://blackstone-model.s3-eu-west-1.amazonaws.com/en_blackstone_proto-0.0.1.tar.gz
+# Fallback general English model
+# python -m spacy download en_core_web_sm
+
+# ── Data ingestion (parse_combined_txt.py) ────────────────────
+pandas==2.2.2
+pyarrow==17.0.0
+python-dateutil==2.9.0
+beautifulsoup4==4.12.3
+requests==2.32.3
+pypdf==4.3.1
+
+# ── Trend pipeline (app/data/trends/) ────────────────────────
+numpy==1.26.4
+matplotlib==3.9.2
+seaborn==0.13.2
+plotly==5.24.1
+scikit-learn==1.5.2
+networkx==3.4.2
+pyyaml==6.0.2
+
+
+# ── Semantic BERT layer (app/data/trends/semantic_bert.py) ─
+# Required for the InLegalBERT fallback in categorize.py.
+# GPU recommended for large re-runs; CPU works but is slower.
+# Model (~400 MB) is cached in ~/.cache/huggingface/hub on first use.
+transformers>=4.40.0
+torch>=2.2.0
+
+
+# -- Similar Case Retrieval (app/retrieval/) -----------------------
+# BM25 keyword retrieval (auto-built from judgments.parquet on first use)
+rank-bm25>=0.2.2
+
+# Dense vector index for semantic retrieval (pre-build with retrieval_index.py)
+faiss-cpu>=1.7.4
+
+# Fine-tune InLegalBERT as a retrieval sentence encoder
+sentence-transformers>=2.6.0
