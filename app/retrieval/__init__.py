@@ -29,6 +29,11 @@ improves retrieval quality if present at:
 Build it with:
       python -m app.data.trends.finetune_retrieval
 """
+try:
+    import torch  # noqa: F401
+except (ImportError, OSError):
+    pass
+
 from .fusion import retrieve, DEFAULT_WEIGHTS
 from .lexical import get_lexical_retriever
 from .semantic import get_semantic_retriever

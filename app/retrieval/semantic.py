@@ -61,6 +61,27 @@ def _best_model_name() -> str:
     return str(_FINETUNED) if _FINETUNED.exists() else _BASE_MODEL
 
 
+def _preload_torch() -> None:
+    """
+    Load Torch before FAISS or large parquet-backed dataframes initialize
+    native DLLs.  On Windows, importing Torch later can fail while loading
+    c10.dll even when Torch is correctly installed.
+    """
+    try:
+        import torch  # noqa: F401, PLC0415
+    except ImportError as exc:
+        raise ImportError(
+            "transformers and torch are required for semantic retrieval.\n"
+            "Run: pip install transformers torch"
+        ) from exc
+    except OSError as exc:
+        raise RuntimeError(
+            "torch failed to load its native DLLs. On Windows, make sure "
+            "torch is imported before FAISS or large parquet-backed "
+            "dataframes are loaded in this Python process."
+        ) from exc
+
+
 # ---------------------------------------------------------------------------
 # Encoder (shared with retrieval_index.py)
 # ---------------------------------------------------------------------------
@@ -86,8 +107,8 @@ class InLegalEncoder:
         with self._lock:
             if self._loaded:
                 return
+            _preload_torch()
             try:
-                import torch
                 from transformers import AutoModel, AutoTokenizer
             except ImportError as exc:
                 raise ImportError(
@@ -207,6 +228,12 @@ class SemanticRetriever:
                     "Semantic retrieval disabled.",
                     _FAISS_IDX,
                 )
+                self._state = "unavailable"
+                return
+            try:
+                _preload_torch()
+            except (ImportError, RuntimeError) as exc:
+                log.warning("%s  Semantic retrieval disabled.", exc)
                 self._state = "unavailable"
                 return
             try:
