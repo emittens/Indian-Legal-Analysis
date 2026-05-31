@@ -77,6 +77,7 @@ class RetrievalResult:
     category:         str
     bench_size:       int
     headnote_preview: str
+    indiankanoon_url: str
 
     fusion_score:     float
     bm25_score:       float      # raw (unnormalised)
@@ -115,6 +116,7 @@ class RetrievalResult:
             "ner_overlap":       self.ner_overlap,
             "provenance":        self.provenance,
             "score_breakdown":   {k: round(v, 4) for k, v in self.score_breakdown.items()},
+            "indiankanoon_url": self.indiankanoon_url,
         }
 
 
@@ -338,6 +340,7 @@ def retrieve(
             ner_overlap       = ner_overlap,
             provenance        = sc["provenance"],
             score_breakdown   = breakdown,
+            indiankanoon_url  =m.get("indiankanoon_url", ""),
         ))
 
     # ── Sort + slice ──────────────────────────────────────────────────

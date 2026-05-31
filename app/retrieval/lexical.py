@@ -146,7 +146,7 @@ class LexicalRetriever:
         # ── Metadata ──────────────────────────────────────────────────
         self._meta = {}
         for row in df[["case_id","title","year","headnote","bench_size",
-                        "act_text","sections_cited"]].to_dict("records"):
+                        "act_text","sections_cited","indiankanoon_url"]].to_dict("records"):
             cid = row["case_id"]
             hn  = str(row.get("headnote") or "")
             self._meta[cid] = {
@@ -155,6 +155,7 @@ class LexicalRetriever:
                 "year":           int(row.get("year") or 0),
                 "bench_size":     int(row.get("bench_size") or 0),
                 "headnote_preview": hn[:280] + ("…" if len(hn) > 280 else ""),
+                "indiankanoon_url": str(row.get("indiankanoon_url") or ""),
             }
 
         # ── Signal: statutes per case (from act_text) ─────────────────
@@ -338,7 +339,7 @@ class LexicalRetriever:
         self._ensure_loaded()
         return self._meta.get(case_id, {"case_id": case_id, "title": case_id,
                                          "year": 0, "bench_size": 0,
-                                         "category": "Other", "headnote_preview": ""})
+                                         "category": "Other", "headnote_preview": "","indiankanoon_url": "",})
 
     def get_all_case_ids(self) -> list[str]:
         self._ensure_loaded()

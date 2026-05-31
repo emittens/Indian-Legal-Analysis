@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
+from pathlib import Path
 
 log = logging.getLogger(__name__)
 
@@ -47,8 +48,8 @@ log = logging.getLogger(__name__)
 _PKG       = Path(__file__).resolve().parent.parent
 _DATA      = _PKG / "data" / "processed"
 _RET_DIR   = _DATA / "retrieval"
-_FAISS_IDX = _RET_DIR / "faiss.index"
-_CASE_IDS  = _RET_DIR / "case_ids.json"
+_FAISS_IDX = _RET_DIR/"faiss.index"
+_CASE_IDS  = _RET_DIR/"case_ids.json"
 _FINETUNED = _PKG / "data" / "models" / "inlegalbert-retrieval"
 
 _BASE_MODEL = "law-ai/InLegalBERT"
@@ -308,8 +309,12 @@ class SemanticRetriever:
         ):
             if idx < 0:
                 continue
+            case_name = self._case_ids.get(str(idx), "").split("_")
+            final_name = ""
+            for i in range(len(case_name)-1):
+                final_name +=  case_name[i] + " "
             results.append({
-                "case_id":        self._case_ids[idx],
+                "case_id":        final_name,
                 "semantic_score": float(score),
                 "semantic_rank":  rank,
             })

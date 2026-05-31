@@ -406,37 +406,65 @@ function renderPanel(results, mode) {
 }
 
 function renderCard(r, rank, mode) {
+  console.log(r);
+
   const catColor = CATEGORY_COLORS[r.category] || '#94a3b8';
+
   const provTags = r.provenance.map(p =>
     `<span class="ret-prov ${p === 'lexical' ? 'prov-lex' : 'prov-sem'}">${p}</span>`
   ).join('');
 
   const scoreBar = mode === 'fusion' ? renderScoreBar(r) : '';
   const signals  = renderSignals(r, mode);
+
   const mainScore = mode === 'fusion'
     ? r.fusion_score
     : mode === 'lexical'
-    ? r.bm25_norm
-    : r.semantic_score;
+      ? r.bm25_norm
+      : r.semantic_score;
+
+  const clickAction = r.indiankanoon_url
+    ? `onclick="window.open('${r.indiankanoon_url}', '_blank')"`
+    : '';
 
   return `
-  <div class="ret-card" id="card-${rank}-${mode}">
+  <div class="ret-card"
+       id="card-${rank}-${mode}"
+       ${clickAction}
+       style="cursor:${r.indiankanoon_url ? 'pointer' : 'default'};">
     <div class="ret-card-header">
       <div class="ret-card-rank">#${rank}</div>
+
       <div class="ret-card-meta">
         <span class="ret-card-year">${r.year}</span>
-        <span class="ret-card-cat" style="background:${catColor}20;color:${catColor}">${r.category}</span>
+        <span class="ret-card-cat"
+              style="background:${catColor}20;color:${catColor}">
+          ${r.category}
+        </span>
+
         ${r.bench_size > 4 ? '<span class="ret-card-cb">CB</span>' : ''}
         ${provTags}
       </div>
-      <div class="ret-card-score">${(mainScore * 100).toFixed(0)}<span class="ret-score-unit">%</span></div>
+
+      <div class="ret-card-score">
+        ${(mainScore * 100).toFixed(0)}
+        <span class="ret-score-unit">%</span>
+      </div>
     </div>
-    <div class="ret-card-title">${escHtml(r.title)}</div>
-    ${r.headnote_preview ? `<p class="ret-card-preview">${escHtml(r.headnote_preview)}</p>` : ''}
+
+    <div class="ret-card-title">
+      ${escHtml(r.title)}
+    </div>
+
+    ${r.headnote_preview
+      ? `<p class="ret-card-preview">${escHtml(r.headnote_preview)}</p>`
+      : ''}
+
     ${signals}
     ${scoreBar}
   </div>`;
 }
+
 
 function renderSignals(r, mode) {
   const parts = [];
