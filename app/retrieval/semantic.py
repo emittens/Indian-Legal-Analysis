@@ -48,8 +48,8 @@ log = logging.getLogger(__name__)
 _PKG       = Path(__file__).resolve().parent.parent
 _DATA      = _PKG / "data" / "processed"
 _RET_DIR   = _DATA / "retrieval"
-_FAISS_IDX = Path(r"C:\Users\Rahul.Paul\Downloads\Indian-Legal-Analysis-main\Indian-Legal-Analysis-main\app\retrieval\faiss.index")
-_CASE_IDS  = Path(r"C:\Users\Rahul.Paul\Downloads\Indian-Legal-Analysis-main\Indian-Legal-Analysis-main\app\retrieval\case_ids.json")
+_FAISS_IDX = Path("app/retrieval/faiss.index")
+_CASE_IDS  = Path("app/retrieval/case_ids.json")
 _FINETUNED = _PKG / "data" / "models" / "inlegalbert-retrieval"
 
 _BASE_MODEL = "law-ai/InLegalBERT"
