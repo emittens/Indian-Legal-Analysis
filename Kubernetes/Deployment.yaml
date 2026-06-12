@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: legal-analysis
+spec:
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: legal-analysis
+
+  template:
+    metadata:
+      labels:
+        app: legal-analysis
+
+    spec:
+      containers:
+      - name: legal-analysis
+        image: ghcr.io/emittens/indian-legal-analysis:latest
+        imagePullPolicy: Always
+
+        ports:
+        - containerPort: 5000
+
+        env:
+        - name: HF_HOME
+          value: /app/cache
+        - name: TRANSFORMERS_CACHE
+          value: /app/cache
+
+        volumeMounts:
+        - name: cache
+          mountPath: /app/cache
+
+        - name: data
+          mountPath: /app/app/data
+          readOnly: true
+
+        - name: faiss
+          mountPath: /app/app/retrieval/faiss.index
+          subPath: faiss.index
+          readOnly: true
+
+      volumes:
+      - name: cache
+        persistentVolumeClaim:
+          claimName: cache-pvc
+
+      - name: data
+        persistentVolumeClaim:
+          claimName: data-pvc
+
+      - name: faiss
+        persistentVolumeClaim:
+          claimName: faiss-pvc
