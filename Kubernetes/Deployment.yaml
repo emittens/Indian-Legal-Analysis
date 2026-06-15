@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: legal-analysis
-        image: ghcr.io/emittens/indian-legal-analysis:v10
+        image: ghcr.io/emittens/indian-legal-analysis:v11
         imagePullPolicy: Always
 
         ports:
