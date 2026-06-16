@@ -1,0 +1,61 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: data-bootstrap
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    argocd.argoproj.io/hook: PreSync
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+
+      containers:
+      - name: bootstrap
+
+        image: alpine:latest
+
+        command:
+        - /bin/sh
+        - -c
+        - |
+          apk add --no-cache curl tar
+
+          if [ -f /mnt/data/processed/judgments.parquet ]; then
+            echo "Data already exists"
+            exit 0
+          fi
+
+          echo "Downloading dataset..."
+
+          curl -L \
+          https://github.com/emittens/Indian-Legal-Analysis/releases/download/data-v1/judgments-data.tar.gz \
+          -o /tmp/judgments-data.tar.gz
+
+          tar -xzf /tmp/judgments-data.tar.gz \
+              --strip-components=2 \
+              -C /mnt/data
+
+          echo "Downloading faiss index..."
+
+          curl -L \
+          https://github.com/emittens/Indian-Legal-Analysis/releases/download/data-v1/faiss.index \
+          -o /mnt/faiss/faiss.index
+
+          echo "Done"
+
+        volumeMounts:
+        - name: data
+          mountPath: /mnt/data
+
+        - name: faiss
+          mountPath: /mnt/faiss
+
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: data-pvc
+
+      - name: faiss
+        persistentVolumeClaim:
+          claimName: faiss-pvc
