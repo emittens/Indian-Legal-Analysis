@@ -132,7 +132,11 @@ def extract_legal_entities(text: str) -> dict[str, list[str]]:
         {m.group(1).strip().replace(" ", "").replace("(", "").replace(")", "")
          for m in _ARTICLE_RE.finditer(text)},
         key=lambda x: int(re.search(r"\d+", x).group()) if re.search(r"\d+", x) else 999,
-    )
+    ) 
+    
+    #First we create an iterator object using the regex created to find articles
+    #we retrive the first group which mean it return the part after the first paranthesis and we strip all the spaces and brackets etc for ease of comparision
+    #The part inside {} becomes a set so no dduplicate values. Then we agaiin check if we have only numbers inside and set and sort them
 
     ipc_sections = sorted(
         {m.group(1).upper() for m in _IPC_TAG_RE.finditer(text)},
@@ -140,6 +144,8 @@ def extract_legal_entities(text: str) -> dict[str, list[str]]:
     crpc_sections = sorted(
         {m.group(1).upper() for m in _CRPC_TAG_RE.finditer(text)},
     )
+
+    #Both sections for ipc and crpc section return the number associated with the section
 
     doctrines = [d for d in _DOCTRINES if d in text_lower]
     procedural = [p for p in _PROCEDURAL if p in text_lower]

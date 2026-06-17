@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 retrieval/lexical.py — BM25 keyword retrieval + deterministic signal tables
 ===========================================================================
@@ -23,7 +25,10 @@ If the pickle is stale (judgments.parquet is newer), it is rebuilt.
 
 Dependencies: rank_bm25  (pip install rank-bm25)
 """
-from __future__ import annotations
+
+"""BM25 is an extension of the TF-IDF algorithm.
+In Tf-IDF term frequesncy term increses linearly BM25 makes it so that after a particular increse more increse does not contribute equally to the TF term. It also normalises document leanth in a way that longer documents does not automatically dominate the search results"""
+
 
 import logging
 import pickle
@@ -65,8 +70,10 @@ above below between through during including until against
 among throughout despite towards upon concerning of about into
 """.split())
 
-_TOKEN_RE = re.compile(r"[a-z0-9]+(?:[a-z0-9])*")
+# _TOKEN_RE = re.compile(r"[a-z0-9]+(?:[a-z0-9])*")
+_TOKEN_RE = re.compile(r"[a-z0-9]+(?:[-'][a-z0-9]+)*")
 
+"""This tokenizer stores hypheneted words as a single token"""
 
 def _tokenize(text: str) -> list[str]:
     tokens = _TOKEN_RE.findall(text.lower())
@@ -130,6 +137,8 @@ class LexicalRetriever:
             if self._ready:
                 return
             self._build()
+
+    # We use locking to ensure that only one thread calls the build function. Otherwise when multiple requests happen more than one thread could start the build function which is a waste since the index has to be created only once
 
     def _build(self) -> None:
         try:

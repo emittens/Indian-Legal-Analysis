@@ -56,10 +56,10 @@ log = logging.getLogger(__name__)
 # Default fusion weights (must sum to 1.0)
 # ---------------------------------------------------------------------------
 DEFAULT_WEIGHTS: dict[str, float] = {
-    "bm25":     0.25,
+    "bm25":     0.2,
     "semantic": 0.35,
     "sections": 0.13,
-    "statutes": 0.10,
+    "statutes": 0.1,
     "citation": 0.07,
     "articles": 0.06,
     "category": 0.04,
@@ -159,8 +159,20 @@ def retrieve(
     """
     t0 = time.perf_counter()
 
-    w = {**DEFAULT_WEIGHTS, **(weights or {})}
+    #Create a new weight dict w
+    w = {**DEFAULT_WEIGHTS, **(weights or {})} 
     filt = filters or {}
+
+    # The weights need to be normalised so that the sum needs to be between 0 and 1
+    s = 0
+    for wg in w:
+        s += w[wg]
+
+    for wg in w:
+        w[wg] = w[wg]/s
+
+    
+
 
     lex  = get_lexical_retriever()
     sem  = get_semantic_retriever()

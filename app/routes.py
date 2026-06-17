@@ -149,6 +149,8 @@ def retrieval():
         ("articles", "Const. Articles", DEFAULT_WEIGHTS["articles"]),
         ("category", "Same Category",   DEFAULT_WEIGHTS["category"]),
     ]
+
+    log.warning(weight_labels)
     sem = get_semantic_retriever()
     return render_template(
         "retrieval.html",
