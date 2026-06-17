@@ -426,9 +426,8 @@ function renderCard(r, rank, mode) {
   return `
   <div class="ret-card"
        id="card-${rank}-${mode}"
-       ${clickAction}
-       style="cursor:${r.indiankanoon_url ? 'pointer' : 'default'};">
-    <div class="ret-card-header">
+       >
+    <div class="ret-card-header" >
       <div class="ret-card-rank">#${rank}</div>
 
       <div class="ret-card-meta">
@@ -447,7 +446,8 @@ function renderCard(r, rank, mode) {
       </div>
     </div>
 
-    <div class="ret-card-title">
+    <div class="ret-card-title" ${clickAction}
+       style="cursor:${r.indiankanoon_url ? 'pointer' : 'default'};">
       ${escHtml(r.title)}
     </div>
 
