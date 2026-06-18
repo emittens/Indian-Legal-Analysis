@@ -126,6 +126,39 @@ body {
   top: 0;
   z-index: 50;
 }
+
+.ret-info-tooltip {
+  position: relative;
+  display: inline-block;
+  margin-left: 6px;
+  cursor: help;
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.ret-tooltip-text {
+  visibility: hidden;
+  opacity: 0;
+  position: absolute;
+  z-index: 1000;
+  width: 260px;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 125%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #222;
+  color: #fff;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  transition: opacity 0.2s;
+}
+
+.ret-info-tooltip:hover .ret-tooltip-text {
+  visibility: visible;
+  opacity: 1;
+}
+
 .menu-toggle {
   background: none;
   border: 1px solid var(--border);
